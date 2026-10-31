@@ -1,0 +1,49 @@
+# Sistema de Gestión de Planta Docente
+# Iniciar:   docker compose up -d --build
+# Detener:   docker compose down
+# Reiniciar: docker compose restart
+# Logs:      docker compose logs -f api
+
+services:
+  api:
+    build: ./api
+    container_name: pd-api
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./api/app:/app/app      # hot reload en desarrollo
+      - ./data:/app/data        # base SQLite persistente
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # para llegar a Ollama en el host
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: pd-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: pd-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=America/Argentina/Buenos_Aires
+      - TZ=America/Argentina/Buenos_Aires
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows   # workflows exportados (JSON) versionados en Git
+    restart: unless-stopped
+
+volumes:
+  n8n_data:

@@ -1,0 +1,16 @@
+# Entorno y secretos
+.env
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Base de datos local (los datos de ejemplo van en data/seed/)
+data/*.db
+
+# Sistema / editores
+.DS_Store
+.vscode/
+.idea/
