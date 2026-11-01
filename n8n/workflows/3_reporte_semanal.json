@@ -1,0 +1,208 @@
+{
+  "name": "3 - Reporte semanal con IA",
+  "nodes": [
+    {
+      "id": "857156fa-ec49-4e45-964d-6a840161ea84",
+      "name": "Lunes 9:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "746f81f0-388a-418d-8aca-eca9d9308bcd",
+      "name": "Ejecutar a mano (demo)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "91d31194-49be-43b6-80f9-bb8211e24b82",
+      "name": "Generar reporte con IA (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/reportes/resumen",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "03f22658-75c5-4719-a132-da675fbfef02",
+      "name": "¿Hay materias sin cobertura?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        500,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "e26edcb3-856b-46ff-ba8f-a8b85c0723d5",
+              "leftValue": "={{ $json.hay_materias_sin_cobertura }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7904c4e4-b719-4501-b810-58e5b0f83628",
+      "name": "Alerta prioritaria",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/notificaciones",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ origen: \"n8n: reporte semanal\", nivel: 'urgente', titulo: 'Reporte semanal: ' + $json.indicadores.materias_sin_cobertura.length + ' materia(s) sin cobertura', mensaje: 'MATERIAS SIN COBERTURA (dato calculado):\\n' + $json.indicadores.materias_sin_cobertura.map(m => '• ' + m.nombre + ': faltan ' + m.horas_faltantes + ' h').join('\\n') + '\\n\\nRESUMEN REDACTADO POR IA (' + $json.modelo_ia + '):\\n' + $json.resumen_ia }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "177a87eb-0919-4e69-8046-e7b29c886e9c",
+      "name": "Reporte normal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/notificaciones",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ origen: \"n8n: reporte semanal\", nivel: 'info', titulo: 'Reporte semanal de la planta docente', mensaje: 'RESUMEN REDACTADO POR IA (' + $json.modelo_ia + '):\\n' + $json.resumen_ia }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "5bbbf125-c9b3-40e9-a5f6-23cb1401d297",
+      "name": "Avisar: no se pudo generar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/notificaciones",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ origen: \"n8n: reporte semanal\", nivel: 'alerta', titulo: 'No se pudo generar el reporte semanal', mensaje: (() => { const e = $json.error; const m = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e || 'error desconocido'); try { const d = JSON.parse(JSON.parse(m.slice(m.indexOf(' - ') + 3))); return d.detail || m; } catch (x) { return m; } })() }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Lunes 9:00": {
+      "main": [
+        [
+          {
+            "node": "Generar reporte con IA (API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar a mano (demo)": {
+      "main": [
+        [
+          {
+            "node": "Generar reporte con IA (API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar reporte con IA (API)": {
+      "main": [
+        [
+          {
+            "node": "¿Hay materias sin cobertura?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar: no se pudo generar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay materias sin cobertura?": {
+      "main": [
+        [
+          {
+            "node": "Alerta prioritaria",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reporte normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -168,3 +168,13 @@ def cargar_cv(nombre_archivo: str, contenido: bytes) -> dict:
 
 def generar_reporte() -> dict:
     return _llamar("POST", "/reportes/resumen", timeout=TIMEOUT_IA)
+
+
+# ---------------- Notificaciones (las crean los workflows de n8n) ----------------
+
+def listar_notificaciones(solo_no_leidas: bool = False) -> list[dict]:
+    return _llamar("GET", "/notificaciones", params=_sin_vacios({"solo_no_leidas": solo_no_leidas}))
+
+
+def marcar_notificacion_leida(notificacion_id: int) -> dict:
+    return _llamar("PUT", f"/notificaciones/{notificacion_id}/leida")

@@ -18,7 +18,7 @@ Dentro de Docker, los servicios se comunican por nombre: el frontend llama a `ht
 
 ## Requisitos
 - Docker Desktop (o Docker Engine + Compose)
-- Ollama instalado en el host (se configura en el Paso 5)
+- Ollama instalado en el host, con el modelo descargado: `ollama pull qwen2.5:3b`
 
 ## Cómo ejecutar
 
@@ -29,6 +29,30 @@ docker compose ps             # ver estado
 docker compose logs -f api    # ver logs de un servicio
 docker compose restart        # reiniciar
 docker compose down           # detener
+```
+
+## Workflows de n8n
+
+Los tres workflows están exportados en `n8n/workflows/` (también se pueden regenerar con `python n8n/generar_workflows.py`).
+
+| Workflow | Disparador | Qué hace | Decisión |
+|---|---|---|---|
+| 1 - Ingreso de CV con IA | Webhook `POST /webhook/cv` | Manda el CV a `POST /docentes/cv` | ¿Se creó el docente? → aviso "pendiente de revisión" / aviso "CV incompleto". Si la API falla → aviso de error |
+| 2 - Alertas de vencimiento | Todos los días 8:00 (o manual) | Consulta `GET /alertas/vencimientos?dias=30` | ¿Hay designaciones por vencer? → aviso (urgente si alguna ya venció) / sin novedades |
+| 3 - Reporte semanal con IA | Lunes 9:00 (o manual) | Pide `POST /reportes/resumen` (indicadores + texto de IA) | ¿Hay materias sin cobertura? → alerta prioritaria / reporte normal. Si la IA falla → aviso de error |
+
+Los avisos se guardan con `POST /notificaciones` y se ven en la pantalla, sección **Notificaciones**.
+
+Importar los workflows (una sola vez, con los contenedores prendidos):
+
+```bash
+docker compose exec n8n n8n import:workflow --separate --input=/workflows
+```
+
+Probar el workflow 1 enviando un CV de ejemplo (después de activarlo en n8n):
+
+```bash
+curl -F "archivo=@data/ejemplos/cv_laura_martinez.txt" http://localhost:5678/webhook/cv
 ```
 
 ## Estructura

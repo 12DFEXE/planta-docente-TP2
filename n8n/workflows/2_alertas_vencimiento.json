@@ -1,0 +1,178 @@
+{
+  "name": "2 - Alertas de vencimiento",
+  "nodes": [
+    {
+      "id": "81988cfb-d746-4bab-939c-9315d035e2b3",
+      "name": "Todos los días 8:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6e2c422d-903e-45c4-8558-ec94d8db67e5",
+      "name": "Ejecutar a mano (demo)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "04c7c4b1-5e16-44b2-87f4-c8ef96479c62",
+      "name": "Consultar vencimientos (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "url": "http://api:8000/alertas/vencimientos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dias",
+              "value": "30"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "13034319-53ff-45ed-8acd-9459f3708a12",
+      "name": "¿Hay designaciones por vencer?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "91913d77-6f03-4690-8364-ab1907c66b17",
+              "leftValue": "={{ $json.cantidad }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c2d87ea2-eca1-4950-bd64-40e7e57ffa42",
+      "name": "Avisar vencimientos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/notificaciones",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ origen: \"n8n: vencimientos\", nivel: ($json.alertas.some(a => a.estado === 'vencida') ? 'urgente' : 'alerta'), titulo: $json.cantidad + ' designación(es) vencida(s) o por vencer en ' + $json.dias + ' días', mensaje: $json.alertas.map(a => '• ' + a.docente_nombre + ' – ' + a.materia_nombre + ': vence el ' + a.fecha_vencimiento + (a.dias_restantes < 0 ? ' (VENCIDA hace ' + (-a.dias_restantes) + ' días)' : ' (faltan ' + a.dias_restantes + ' días)')).join('\\n') + '\\n\\nHay que renovarlas o reasignar las materias.' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "48c6db6c-97c6-44dc-90e1-bf68f654d59a",
+      "name": "Sin novedades",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        740,
+        400
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Todos los días 8:00": {
+      "main": [
+        [
+          {
+            "node": "Consultar vencimientos (API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar a mano (demo)": {
+      "main": [
+        [
+          {
+            "node": "Consultar vencimientos (API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar vencimientos (API)": {
+      "main": [
+        [
+          {
+            "node": "¿Hay designaciones por vencer?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay designaciones por vencer?": {
+      "main": [
+        [
+          {
+            "node": "Avisar vencimientos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin novedades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

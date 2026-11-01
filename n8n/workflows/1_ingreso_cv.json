@@ -1,0 +1,239 @@
+{
+  "name": "1 - Ingreso de CV con IA",
+  "nodes": [
+    {
+      "id": "2ad43685-6e82-4691-a452-e12c8ca74248",
+      "name": "Recibir CV (webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cv",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "d6918292-b9e9-4454-aa21-a9301e2156dd"
+    },
+    {
+      "id": "13eefdc7-c22b-471c-90d1-805861211562",
+      "name": "Procesar CV con IA (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/docentes/cv",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "archivo",
+              "inputDataFieldName": "archivo"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "a9401f59-4f64-4ee6-b05d-b1c2e8677b1d",
+      "name": "¿Se creó el docente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        500,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "bc0eba74-5d51-41ed-b5ba-91bd20301bdf",
+              "leftValue": "={{ $json.resultado }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "creado"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6e4d6f00-5fa3-40dc-955b-5ba4362d1ff4",
+      "name": "Avisar: pendiente de revisión",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/notificaciones",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ origen: \"n8n: ingreso de CV\", nivel: 'info', titulo: 'Nuevo docente desde CV: ' + $json.docente.nombre, mensaje: 'La IA cargó a ' + $json.docente.nombre + ' (' + $json.docente.email + ') como PENDIENTE DE REVISIÓN. Revisalo y confirmalo en Docentes → Editar / confirmar revisión.' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "cd11d52f-1978-4d1f-83f7-0424e4ffd358",
+      "name": "Avisar: CV incompleto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/notificaciones",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ origen: \"n8n: ingreso de CV\", nivel: 'alerta', titulo: 'CV incompleto: requiere carga manual', mensaje: 'No se cargó el docente porque en el CV faltan datos obligatorios: ' + $json.campos_faltantes.join(', ') + '. Datos leídos: ' + ($json.datos_extraidos.nombre || 'sin nombre') + '.' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "ac4d8871-b8b0-416b-b87c-c8423ac629ea",
+      "name": "Avisar: error al procesar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/notificaciones",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ origen: \"n8n: ingreso de CV\", nivel: 'alerta', titulo: 'No se pudo procesar un CV', mensaje: (() => { const e = $json.error; const m = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e || 'error desconocido'); try { const d = JSON.parse(JSON.parse(m.slice(m.indexOf(' - ') + 3))); return d.detail || m; } catch (x) { return m; } })() }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "d6860996-d344-4c32-9bee-2352a47f2c73",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1020,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ aviso: $json.titulo, detalle: $json.mensaje }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibir CV (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Procesar CV con IA (API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar CV con IA (API)": {
+      "main": [
+        [
+          {
+            "node": "¿Se creó el docente?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar: error al procesar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Se creó el docente?": {
+      "main": [
+        [
+          {
+            "node": "Avisar: pendiente de revisión",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisar: CV incompleto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar: pendiente de revisión": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar: CV incompleto": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar: error al procesar": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

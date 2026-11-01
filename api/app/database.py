@@ -56,5 +56,15 @@ def init_db() -> None:
                 horas             INTEGER NOT NULL,
                 fecha_vencimiento TEXT    NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS notificaciones (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                origen     TEXT    NOT NULL,
+                nivel      TEXT    NOT NULL,
+                titulo     TEXT    NOT NULL,
+                mensaje    TEXT    NOT NULL,
+                leida      INTEGER NOT NULL DEFAULT 0,
+                creada_en  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
             """
         )

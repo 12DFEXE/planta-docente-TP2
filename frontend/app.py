@@ -45,7 +45,7 @@ def mostrar_mensaje_guardado():
 st.sidebar.title("🎓 Planta Docente")
 pagina = st.sidebar.radio(
     "Ir a",
-    ["📊 Tablero", "👩‍🏫 Docentes", "📚 Materias", "🔗 Asignaciones"],
+    ["📊 Tablero", "👩‍🏫 Docentes", "📚 Materias", "🔗 Asignaciones", "🔔 Notificaciones"],
     label_visibility="collapsed",
 )
 
@@ -66,6 +66,13 @@ try:
         st.sidebar.warning(f"IA no disponible: {estado_ia['detalle']}")
 except ApiError:
     st.sidebar.warning("No se pudo consultar el estado de la IA")
+
+try:
+    sin_leer = len(api.listar_notificaciones(solo_no_leidas=True))
+    if sin_leer:
+        st.sidebar.info(f"🔔 {sin_leer} notificación(es) sin leer")
+except ApiError:
+    pass
 
 
 # ======================= Tablero =======================
@@ -445,6 +452,43 @@ def pagina_asignaciones():
                 st.error(str(e))
 
 
+# ======================= Notificaciones =======================
+
+ICONOS_NIVEL = {"info": "🔵", "alerta": "🟡", "urgente": "🔴"}
+
+
+def pagina_notificaciones():
+    st.title("🔔 Notificaciones")
+    st.caption(
+        "Avisos generados automáticamente por los workflows de n8n "
+        "(ingreso de CVs, vencimientos y reporte semanal)."
+    )
+    solo_sin_leer = st.checkbox("Mostrar solo las no leídas")
+    try:
+        avisos = api.listar_notificaciones(solo_no_leidas=solo_sin_leer)
+    except ApiError as e:
+        st.error(str(e))
+        return
+
+    if not avisos:
+        st.info("No hay notificaciones. Aparecen acá cuando se ejecuta un workflow de n8n.")
+        return
+
+    for aviso in avisos:
+        icono = ICONOS_NIVEL.get(aviso["nivel"], "⚪")
+        estado = "" if aviso["leida"] else " · **nueva**"
+        with st.container(border=True):
+            st.markdown(f"{icono} **{aviso['titulo']}**{estado}")
+            st.caption(f"{aviso['origen']} · {aviso['creada_en']}")
+            st.write(aviso["mensaje"])
+            if not aviso["leida"] and st.button("Marcar como leída", key=f"leer_{aviso['id']}"):
+                try:
+                    api.marcar_notificacion_leida(aviso["id"])
+                    st.rerun()
+                except ApiError as e:
+                    st.error(str(e))
+
+
 # ======================= Router =======================
 
 if pagina == "📊 Tablero":
@@ -453,5 +497,7 @@ elif pagina == "👩‍🏫 Docentes":
     pagina_docentes()
 elif pagina == "📚 Materias":
     pagina_materias()
-else:
+elif pagina == "🔗 Asignaciones":
     pagina_asignaciones()
+else:
+    pagina_notificaciones()

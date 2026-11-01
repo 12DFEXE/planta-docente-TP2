@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import FastAPI, File, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from . import asignaciones, cv, docentes, ia, indicadores, materias, reportes
+from . import asignaciones, cv, docentes, ia, indicadores, materias, notificaciones, reportes
 from .database import init_db
 from .errores import Conflicto, DatosInvalidos, NoEncontrado
 from .schemas import (
@@ -24,6 +24,8 @@ from .schemas import (
     Indicadores,
     Materia,
     MateriaCrear,
+    Notificacion,
+    NotificacionCrear,
     Reporte,
     RespuestaAlertas,
     RespuestaCV,
@@ -41,7 +43,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="API Planta Docente",
     description="Gestión de planta docente con IA y automatizaciones n8n",
-    version="0.5.0",
+    version="0.6.0",
     lifespan=lifespan,
 )
 
@@ -201,3 +203,26 @@ def generar_reporte():
     """Calcula los indicadores (reglas) y le pide a la IA que los redacte como reporte.
     La respuesta separa los números exactos ("indicadores") del texto de la IA ("resumen_ia")."""
     return reportes.generar_reporte()
+
+
+# ---------------- Notificaciones (las crean los workflows de n8n) ----------------
+
+@app.post("/notificaciones", response_model=Notificacion, status_code=status.HTTP_201_CREATED, tags=["Notificaciones"])
+def crear_notificacion(datos: NotificacionCrear):
+    """Registra un aviso generado por un workflow de n8n."""
+    return notificaciones.crear_notificacion(datos)
+
+
+@app.get("/notificaciones", response_model=list[Notificacion], tags=["Notificaciones"])
+def listar_notificaciones(
+    solo_no_leidas: bool = Query(False, description="Solo las que todavía no se leyeron"),
+    limite: int = Query(50, ge=1, le=200),
+):
+    """Lista los avisos, del más nuevo al más viejo."""
+    return notificaciones.listar_notificaciones(solo_no_leidas, limite)
+
+
+@app.put("/notificaciones/{notificacion_id}/leida", response_model=Notificacion, tags=["Notificaciones"])
+def marcar_notificacion_leida(notificacion_id: int):
+    """Marca un aviso como leído."""
+    return notificaciones.marcar_leida(notificacion_id)

@@ -209,3 +209,29 @@ class Reporte(BaseModel):
     resumen_ia: str
     modelo_ia: str
     hay_materias_sin_cobertura: bool
+
+
+# ---------------- Notificaciones (las crea n8n) ----------------
+
+class NivelNotificacion(str, Enum):
+    info = "info"          # informativa
+    alerta = "alerta"      # requiere atención
+    urgente = "urgente"    # requiere atención prioritaria
+
+
+class NotificacionCrear(BaseModel):
+    """Lo que manda n8n para dejar un aviso en el sistema."""
+    origen: str = Field(min_length=2, max_length=60, examples=["n8n: vencimientos"])
+    nivel: NivelNotificacion
+    titulo: str = Field(min_length=3, max_length=120, examples=["Hay 2 designaciones por vencer"])
+    mensaje: str = Field(min_length=1, max_length=4000)
+
+
+class Notificacion(BaseModel):
+    id: int
+    origen: str
+    nivel: NivelNotificacion
+    titulo: str
+    mensaje: str
+    leida: bool
+    creada_en: str
