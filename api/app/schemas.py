@@ -120,3 +120,51 @@ class Asignacion(BaseModel):
     dedicacion: Dedicacion
     horas: int
     fecha_vencimiento: date
+
+
+# ---------------- Indicadores y alertas ----------------
+
+class MateriaSinCobertura(BaseModel):
+    id: int
+    nombre: str
+    horas_faltantes: int
+
+
+class Indicadores(BaseModel):
+    """Números de resumen de la planta docente (todos calculados con reglas, sin IA)."""
+    docentes_total: int
+    docentes_activos: int
+    docentes_pendientes_revision: int
+    docentes_sin_asignacion: int
+    docentes_por_titulo: dict[str, int]
+    porcentaje_posgrado: float
+    horas_totales_asignadas: int
+    promedio_horas_por_docente: float
+    asignaciones_por_dedicacion: dict[str, int]
+    materias_total: int
+    porcentaje_cobertura_horas: float
+    materias_sin_cobertura: list[MateriaSinCobertura]
+
+
+class EstadoVencimiento(str, Enum):
+    vencida = "vencida"
+    por_vencer = "por_vencer"
+
+
+class AlertaVencimiento(BaseModel):
+    id: int
+    docente_nombre: str
+    docente_email: str
+    materia_nombre: str
+    dedicacion: Dedicacion
+    fecha_vencimiento: date
+    dias_restantes: int      # negativo si ya venció
+    estado: EstadoVencimiento
+
+
+class RespuestaAlertas(BaseModel):
+    """Respuesta de /alertas/vencimientos. n8n decide según 'cantidad'."""
+    fecha_consulta: date
+    dias: int
+    cantidad: int
+    alertas: list[AlertaVencimiento]

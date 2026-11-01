@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import FastAPI, Query, Request, status
 from fastapi.responses import JSONResponse
 
-from . import asignaciones, docentes, materias
+from . import asignaciones, docentes, indicadores, materias
 from .database import init_db
 from .errores import Conflicto, NoEncontrado
 from .schemas import (
@@ -20,8 +20,10 @@ from .schemas import (
     DocenteActualizar,
     DocenteCrear,
     EstadoDocente,
+    Indicadores,
     Materia,
     MateriaCrear,
+    RespuestaAlertas,
     TituloMaximo,
 )
 
@@ -36,7 +38,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="API Planta Docente",
     description="Gestión de planta docente con IA y automatizaciones n8n",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -133,3 +135,21 @@ def listar_asignaciones(
 ):
     """Lista asignaciones, ordenadas por fecha de vencimiento."""
     return asignaciones.listar_asignaciones(docente_id=docente_id, materia_id=materia_id)
+
+
+# ---------------- Indicadores y alertas ----------------
+
+@app.get("/indicadores", response_model=Indicadores, tags=["Indicadores y alertas"])
+def obtener_indicadores():
+    """Números de resumen de la planta docente: docentes, títulos, horas,
+    dedicaciones y cobertura de materias. Todo calculado con reglas en Python."""
+    return indicadores.calcular_indicadores()
+
+
+@app.get("/alertas/vencimientos", response_model=RespuestaAlertas, tags=["Indicadores y alertas"])
+def obtener_alertas_vencimiento(
+    dias: int = Query(30, ge=1, le=365, description="Cuántos días hacia adelante mirar"),
+):
+    """Asignaciones vencidas o que vencen dentro de los próximos `dias` días.
+    Lo consulta n8n todos los días: si 'cantidad' > 0, manda un aviso."""
+    return indicadores.alertas_vencimiento(dias)
