@@ -144,3 +144,11 @@ def actualizar_docente(docente_id: int, cambios: DocenteActualizar) -> dict:
     except sqlite3.IntegrityError:
         raise EmailDuplicado(f"Ya existe otro docente con el email {cambios.email}")
     return obtener_docente(docente_id)
+
+
+def guardar_resumen(docente_id: int, resumen: str) -> dict:
+    """Guarda el resumen del perfil generado por la IA."""
+    obtener_docente(docente_id)  # si no existe, lanza DocenteNoEncontrado
+    with get_connection() as conn:
+        conn.execute("UPDATE docentes SET resumen = ? WHERE id = ?", (resumen, docente_id))
+    return obtener_docente(docente_id)

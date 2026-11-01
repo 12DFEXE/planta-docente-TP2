@@ -9,7 +9,8 @@ from typing import Optional
 import requests
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
-TIMEOUT = 10  # segundos máximos de espera por respuesta
+TIMEOUT = 10      # segundos máximos de espera por respuesta
+TIMEOUT_IA = 300  # la IA local puede tardar bastante en una compu sin placa de video
 
 
 class ApiError(Exception):
@@ -81,10 +82,10 @@ def _mensaje_de_error(respuesta: requests.Response) -> str:
     return f"Error {respuesta.status_code} de la API"
 
 
-def _llamar(metodo: str, ruta: str, **kwargs):
+def _llamar(metodo: str, ruta: str, timeout: int = TIMEOUT, **kwargs):
     """Hace la llamada HTTP y devuelve el JSON, o lanza ApiError con un mensaje claro."""
     try:
-        respuesta = requests.request(metodo, f"{API_URL}{ruta}", timeout=TIMEOUT, **kwargs)
+        respuesta = requests.request(metodo, f"{API_URL}{ruta}", timeout=timeout, **kwargs)
     except requests.exceptions.ConnectionError:
         raise ApiError("No se pudo conectar con la API. ¿Está levantado el contenedor `api`?")
     except requests.exceptions.Timeout:
@@ -151,3 +152,19 @@ def obtener_indicadores() -> dict:
 
 def obtener_alertas(dias: int = 30) -> dict:
     return _llamar("GET", "/alertas/vencimientos", params={"dias": dias})
+
+
+# ---------------- Inteligencia artificial ----------------
+
+def estado_ia() -> dict:
+    return _llamar("GET", "/ia/estado")
+
+
+def cargar_cv(nombre_archivo: str, contenido: bytes) -> dict:
+    """Manda el archivo del CV a la API (como un formulario con archivo adjunto)."""
+    return _llamar("POST", "/docentes/cv", timeout=TIMEOUT_IA,
+                   files={"archivo": (nombre_archivo, contenido)})
+
+
+def generar_reporte() -> dict:
+    return _llamar("POST", "/reportes/resumen", timeout=TIMEOUT_IA)

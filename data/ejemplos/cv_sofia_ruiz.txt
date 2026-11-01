@@ -1,0 +1,8 @@
+Sofía Ruiz
+sofia.ruiz@ejemplo.edu.ar
+
+Doctora en Ciencias de la Computación (Universidad Ficticia Nacional, 2020).
+Licenciada en Matemática (2013).
+
+Experiencia: 9 años como docente universitaria en Inteligencia Artificial,
+Algoritmos y Estructuras de Datos, y Matemática Discreta.

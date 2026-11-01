@@ -168,3 +168,44 @@ class RespuestaAlertas(BaseModel):
     dias: int
     cantidad: int
     alertas: list[AlertaVencimiento]
+
+
+# ---------------- Inteligencia artificial ----------------
+
+class EstadoIA(BaseModel):
+    """Si la IA (Ollama) está lista para usar."""
+    disponible: bool
+    modelo: str
+    url: str
+    detalle: str
+
+
+class ResultadoCV(str, Enum):
+    creado = "creado"          # se cargó el docente como pendiente de revisión
+    incompleto = "incompleto"  # faltan datos obligatorios: hay que cargarlo a mano
+
+
+class DatosExtraidosCV(BaseModel):
+    """Lo que la IA leyó del CV, ya limpiado y validado por Python."""
+    nombre: str
+    email: str
+    titulo_maximo: Optional[TituloMaximo] = None
+    areas: list[str]
+    anios_experiencia: int
+
+
+class RespuestaCV(BaseModel):
+    """Respuesta de POST /docentes/cv. n8n decide según 'resultado'."""
+    resultado: ResultadoCV
+    campos_faltantes: list[str]
+    datos_extraidos: DatosExtraidosCV
+    docente: Optional[Docente] = None
+
+
+class Reporte(BaseModel):
+    """Reporte: indicadores calculados con reglas + texto redactado por IA."""
+    generado_en: str
+    indicadores: Indicadores
+    resumen_ia: str
+    modelo_ia: str
+    hay_materias_sin_cobertura: bool

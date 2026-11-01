@@ -7,12 +7,12 @@ este archivo traduce entre HTTP y esa lógica.
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Query, Request, status
+from fastapi import FastAPI, File, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from . import asignaciones, docentes, indicadores, materias
+from . import asignaciones, cv, docentes, ia, indicadores, materias, reportes
 from .database import init_db
-from .errores import Conflicto, NoEncontrado
+from .errores import Conflicto, DatosInvalidos, NoEncontrado
 from .schemas import (
     Asignacion,
     AsignacionCrear,
@@ -20,10 +20,13 @@ from .schemas import (
     DocenteActualizar,
     DocenteCrear,
     EstadoDocente,
+    EstadoIA,
     Indicadores,
     Materia,
     MateriaCrear,
+    Reporte,
     RespuestaAlertas,
+    RespuestaCV,
     TituloMaximo,
 )
 
@@ -38,7 +41,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="API Planta Docente",
     description="Gestión de planta docente con IA y automatizaciones n8n",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -57,6 +60,23 @@ async def manejar_conflicto(request: Request, exc: Conflicto):
     return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": str(exc)})
 
 
+@app.exception_handler(DatosInvalidos)
+async def manejar_datos_invalidos(request: Request, exc: DatosInvalidos):
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(ia.IANoDisponible)
+async def manejar_ia_no_disponible(request: Request, exc: ia.IANoDisponible):
+    # 503 = "servicio no disponible": el sistema funciona, pero la IA no responde
+    return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"detail": str(exc)})
+
+
+@app.exception_handler(ia.RespuestaIAInvalida)
+async def manejar_respuesta_ia_invalida(request: Request, exc: ia.RespuestaIAInvalida):
+    # 502 = "la respuesta de un servicio externo vino mal"
+    return JSONResponse(status_code=status.HTTP_502_BAD_GATEWAY, content={"detail": str(exc)})
+
+
 # ---------------- Sistema ----------------
 
 @app.get("/health", tags=["Sistema"])
@@ -71,6 +91,19 @@ def health():
 def crear_docente(datos: DocenteCrear):
     """Da de alta un docente cargado manualmente."""
     return docentes.crear_docente(datos)
+
+
+@app.post("/docentes/cv", response_model=RespuestaCV, tags=["Docentes", "IA"])
+def cargar_docente_desde_cv(archivo: UploadFile = File(..., description="CV en .txt o .pdf (máx. 2 MB)")):
+    """Carga un docente a partir de su CV usando IA.
+
+    - La IA extrae los datos y Python los valida.
+    - Si falta un dato obligatorio → resultado "incompleto" (no se guarda nada).
+    - Si está todo → se crea como "pendiente_revision" con un resumen generado por IA,
+      y un humano lo tiene que confirmar (PUT /docentes/{id} con estado "activo").
+    """
+    contenido = archivo.file.read()
+    return cv.procesar_cv(archivo.filename, contenido)
 
 
 @app.get("/docentes", response_model=list[Docente], tags=["Docentes"])
@@ -153,3 +186,18 @@ def obtener_alertas_vencimiento(
     """Asignaciones vencidas o que vencen dentro de los próximos `dias` días.
     Lo consulta n8n todos los días: si 'cantidad' > 0, manda un aviso."""
     return indicadores.alertas_vencimiento(dias)
+
+
+# ---------------- Inteligencia artificial ----------------
+
+@app.get("/ia/estado", response_model=EstadoIA, tags=["IA"])
+def estado_ia():
+    """Indica si Ollama responde y si el modelo configurado está descargado."""
+    return ia.estado()
+
+
+@app.post("/reportes/resumen", response_model=Reporte, tags=["IA", "Indicadores y alertas"])
+def generar_reporte():
+    """Calcula los indicadores (reglas) y le pide a la IA que los redacte como reporte.
+    La respuesta separa los números exactos ("indicadores") del texto de la IA ("resumen_ia")."""
+    return reportes.generar_reporte()

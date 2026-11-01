@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 
 import api_client as api
-from api_client import ApiError
+from api_client import NOMBRES_CAMPOS, ApiError
 
 st.set_page_config(page_title="Planta Docente", page_icon="🎓", layout="wide")
 
@@ -57,6 +57,15 @@ except ApiError as e:
     st.sidebar.error(str(e))
     st.error(str(e))
     st.stop()  # sin API no tiene sentido seguir dibujando la pantalla
+
+try:
+    estado_ia = api.estado_ia()
+    if estado_ia["disponible"]:
+        st.sidebar.success(f"IA lista ({estado_ia['modelo']})")
+    else:
+        st.sidebar.warning(f"IA no disponible: {estado_ia['detalle']}")
+except ApiError:
+    st.sidebar.warning("No se pudo consultar el estado de la IA")
 
 
 # ======================= Tablero =======================
@@ -127,6 +136,23 @@ def pagina_tablero():
             use_container_width=True,
         )
 
+    st.subheader("🤖 Reporte redactado por IA")
+    st.caption(
+        "Los números de arriba se calculan con reglas. Este texto lo redacta la IA a partir de esos "
+        "números: es una ayuda para leerlos y hay que revisarlo antes de usarlo."
+    )
+    if st.button("Generar reporte con IA"):
+        with st.spinner("La IA está redactando el reporte... (puede tardar un minuto)"):
+            try:
+                reporte = api.generar_reporte()
+                st.session_state["reporte_ia"] = reporte
+            except ApiError as e:
+                st.error(str(e))
+    if "reporte_ia" in st.session_state:
+        reporte = st.session_state["reporte_ia"]
+        st.info(reporte["resumen_ia"])
+        st.caption(f"Generado por {reporte['modelo_ia']} el {reporte['generado_en'].replace('T', ' ')}")
+
 
 # ======================= Docentes =======================
 
@@ -134,7 +160,9 @@ def pagina_docentes():
     st.title("👩‍🏫 Docentes")
     mostrar_mensaje_guardado()
 
-    tab_lista, tab_alta, tab_editar = st.tabs(["Listado", "Nuevo docente", "Editar / confirmar revisión"])
+    tab_lista, tab_alta, tab_cv, tab_editar = st.tabs(
+        ["Listado", "Nuevo docente", "🤖 Cargar desde CV (IA)", "Editar / confirmar revisión"]
+    )
 
     # ---- Listado con filtros ----
     with tab_lista:
@@ -194,6 +222,51 @@ def pagina_docentes():
                 st.rerun()
             except ApiError as e:
                 st.error(str(e))
+
+    # ---- Alta desde CV con IA ----
+    with tab_cv:
+        st.write(
+            "Subí el CV de un docente (.txt o .pdf). La IA extrae los datos, el sistema los valida "
+            "y el docente queda **pendiente de revisión** hasta que una persona lo confirme."
+        )
+        archivo = st.file_uploader("CV del docente", type=["txt", "pdf"])
+        if archivo is not None and st.button("Analizar CV con IA", type="primary"):
+            with st.spinner("La IA está leyendo el CV... (puede tardar un minuto)"):
+                try:
+                    st.session_state["resultado_cv"] = api.cargar_cv(archivo.name, archivo.getvalue())
+                except ApiError as e:
+                    st.session_state.pop("resultado_cv", None)
+                    st.error(str(e))
+
+        resultado = st.session_state.get("resultado_cv")
+        if resultado:
+            datos = resultado["datos_extraidos"]
+            st.markdown("**Datos que leyó la IA (ya validados por el sistema):**")
+            st.dataframe(
+                pd.DataFrame([{
+                    "Nombre": datos["nombre"] or "—",
+                    "Email": datos["email"] or "—",
+                    "Título": etiqueta(datos["titulo_maximo"]) if datos["titulo_maximo"] else "—",
+                    "Áreas": ", ".join(datos["areas"]) or "—",
+                    "Años exp.": datos["anios_experiencia"],
+                }]),
+                hide_index=True,
+                use_container_width=True,
+            )
+            if resultado["resultado"] == "creado":
+                docente = resultado["docente"]
+                st.success(
+                    f"Se cargó a {docente['nombre']} como **pendiente de revisión**. "
+                    "Revisalo en la pestaña *Editar / confirmar revisión* para habilitarlo."
+                )
+                if docente.get("resumen"):
+                    st.info(f"**Resumen generado por IA:** {docente['resumen']}")
+            else:
+                faltan = ", ".join(NOMBRES_CAMPOS.get(c, c) for c in resultado["campos_faltantes"])
+                st.warning(
+                    f"No se cargó el docente: en el CV faltan datos obligatorios ({faltan}). "
+                    "Completalo a mano en la pestaña *Nuevo docente*."
+                )
 
     # ---- Edición y confirmación de revisión humana ----
     with tab_editar:
