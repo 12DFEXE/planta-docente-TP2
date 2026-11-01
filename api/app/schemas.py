@@ -3,10 +3,11 @@
 Si alguien manda datos que no cumplen estas reglas, FastAPI responde
 automáticamente con un error 422 explicando qué campo está mal.
 """
+from datetime import date
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class TituloMaximo(str, Enum):
@@ -62,3 +63,60 @@ class Docente(BaseModel):
     origen: OrigenDocente
     resumen: Optional[str] = None
     creado_en: str
+
+
+# ---------------- Materias ----------------
+
+class MateriaCrear(BaseModel):
+    """Datos para dar de alta una materia."""
+    nombre: str = Field(min_length=3, max_length=100, examples=["Programación I"])
+    area: str = Field(min_length=3, max_length=60, examples=["Programación"])
+    horas_semanales: int = Field(ge=1, le=20, examples=[6])
+
+
+class Materia(BaseModel):
+    """Lo que la API devuelve de una materia, incluida su cobertura."""
+    id: int
+    nombre: str
+    area: str
+    horas_semanales: int
+    horas_asignadas: int   # cuántas horas ya tienen docente
+    cubierta: bool         # True si horas_asignadas >= horas_semanales
+
+
+# ---------------- Asignaciones ----------------
+
+class Dedicacion(str, Enum):
+    """Tipo de designación del docente en esa materia."""
+    simple = "simple"
+    semiexclusiva = "semiexclusiva"
+    exclusiva = "exclusiva"
+
+
+class AsignacionCrear(BaseModel):
+    """Datos para asignar un docente a una materia."""
+    docente_id: int = Field(gt=0)
+    materia_id: int = Field(gt=0)
+    dedicacion: Dedicacion
+    horas: int = Field(ge=1, le=20, examples=[4])
+    fecha_vencimiento: date = Field(examples=["2027-03-31"])
+
+    @field_validator("fecha_vencimiento")
+    @classmethod
+    def vencimiento_futuro(cls, valor: date) -> date:
+        """Una designación nueva no puede nacer vencida."""
+        if valor <= date.today():
+            raise ValueError("La fecha de vencimiento tiene que ser posterior a hoy")
+        return valor
+
+
+class Asignacion(BaseModel):
+    """Lo que la API devuelve de una asignación (con nombres para leerla fácil)."""
+    id: int
+    docente_id: int
+    docente_nombre: str
+    materia_id: int
+    materia_nombre: str
+    dedicacion: Dedicacion
+    horas: int
+    fecha_vencimiento: date

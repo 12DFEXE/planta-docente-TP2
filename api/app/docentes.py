@@ -9,16 +9,18 @@ import sqlite3
 from typing import Optional
 
 from .database import get_connection
+from .errores import Conflicto, NoEncontrado
 from .schemas import DocenteActualizar, DocenteCrear
 
 
 # ---------- Excepciones propias ----------
+# Heredan de las genéricas de errores.py, así main.py sabe qué código HTTP devolver.
 
-class DocenteNoEncontrado(Exception):
+class DocenteNoEncontrado(NoEncontrado):
     """El docente pedido no existe."""
 
 
-class EmailDuplicado(Exception):
+class EmailDuplicado(Conflicto):
     """Ya hay otro docente con ese email."""
 
 
