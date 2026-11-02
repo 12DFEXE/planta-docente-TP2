@@ -1,0 +1,20 @@
+flowchart LR
+    U(["Usuario<br/>(navegador)"])
+    EXT(["Sistema externo<br/>o curl"])
+
+    subgraph DC["Docker Compose"]
+        FE["Streamlit<br/>pd-frontend :8501<br/><i>interfaz</i>"]
+        API["FastAPI<br/>pd-api :8000<br/><i>endpoints, reglas, validación</i>"]
+        N8N["n8n<br/>pd-n8n :5678<br/><i>3 workflows</i>"]
+        DB[("SQLite<br/>data/planta_docente.db")]
+    end
+
+    OLL["Ollama + qwen2.5:3b<br/>en la computadora :11434<br/><i>IA local</i>"]
+
+    U -- "usa el sistema" --> FE
+    U -. "Swagger /docs" .-> API
+    EXT -- "POST /webhook/cv" --> N8N
+    FE -- "HTTP + JSON<br/>http://api:8000" --> API
+    N8N -- "HTTP + JSON<br/>http://api:8000" --> API
+    API -- "lee y guarda" --> DB
+    API -- "host.docker.internal:11434" --> OLL

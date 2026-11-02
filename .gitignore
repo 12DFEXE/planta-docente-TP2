@@ -7,7 +7,7 @@ venv/
 __pycache__/
 *.pyc
 
-# Base de datos local (los datos de ejemplo van en data/seed/)
+# Base de datos local (los CVs de ejemplo van en data/ejemplos/)
 data/*.db
 
 # Sistema / editores
