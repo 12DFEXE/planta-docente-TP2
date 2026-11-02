@@ -55,6 +55,15 @@ Probar el workflow 1 enviando un CV de ejemplo (después de activarlo en n8n):
 curl -F "archivo=@data/ejemplos/cv_laura_martinez.txt" http://localhost:5678/webhook/cv
 ```
 
+## Datos de ejemplo y verificación
+
+```bash
+docker compose exec api python -m app.datos_ejemplo --reset   # carga datos ficticios para la demo
+docker compose exec api python -m app.verificacion            # 38 casos automáticos (correctos y de error)
+```
+
+El detalle de cómo verificamos el sistema y el guion de la demo están en `docs/verificacion.md`.
+
 ## Estructura
 
 ```
