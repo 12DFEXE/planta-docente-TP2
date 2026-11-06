@@ -25,6 +25,9 @@ services:
       - "8501:8501"
     environment:
       - API_URL=http://api:8000
+      # En Windows, Docker no le avisa al contenedor cuando cambia un archivo de la carpeta montada.
+      # "poll" hace que Streamlit revise los archivos cada tanto y recargue solo los cambios.
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=poll
     volumes:
       - ./frontend:/app
     depends_on:
