@@ -3,6 +3,8 @@
 # Detener:   docker compose down
 # Reiniciar: docker compose restart
 # Logs:      docker compose logs -f api
+# Demo online (opcional): docker compose --profile demo up -d  →  docker compose logs tunel
+#   + n8n online:          docker compose --profile demo --profile demo-n8n up -d  →  docker compose logs tunel-n8n
 
 services:
   api:
@@ -45,10 +47,42 @@ services:
       - GENERIC_TIMEZONE=America/Argentina/Buenos_Aires
       - TZ=America/Argentina/Buenos_Aires
       - N8N_SECURE_COOKIE=false
+      # Hay un proxy delante cuando se usa el túnel (tunel-n8n). Con esto n8n lee bien la
+      # dirección y el protocolo originales; en uso local no cambia nada.
+      - N8N_PROXY_HOPS=1
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/workflows   # workflows exportados (JSON) versionados en Git
     restart: unless-stopped
+
+  # Túnel de Cloudflare para mostrar la interfaz en internet durante la demo.
+  # - Solo se levanta con el perfil "demo": el "docker compose up -d" de siempre NO lo prende.
+  # - Publica SOLO el frontend: la API, n8n y Ollama siguen siendo accesibles únicamente desde
+  #   esta computadora (Streamlit habla con la API por la red interna de Docker).
+  # - La dirección (https://....trycloudflare.com) es al azar, cambia en cada reinicio
+  #   y aparece en "docker compose logs tunel". No necesita cuenta ni dominio.
+  tunel:
+    image: cloudflare/cloudflared:2026.10.7
+    container_name: pd-tunel
+    command: tunnel --no-autoupdate --url http://frontend:8501
+    depends_on:
+      - frontend
+    profiles: ["demo"]
+    restart: on-failure   # se reintenta si falla, pero no se vuelve a prender solo al reiniciar Docker
+
+  # Túnel de Cloudflare para usar el editor de n8n desde otro dispositivo durante la demo.
+  # - Perfil propio ("demo-n8n"): se prende aparte del túnel del frontend.
+  # - El editor pide el usuario y la contraseña de n8n, pero los webhooks quedan públicos
+  #   (por ejemplo /webhook/cv): prenderlo solo mientras haga falta.
+  # - La dirección es al azar y aparece en "docker compose logs tunel-n8n".
+  tunel-n8n:
+    image: cloudflare/cloudflared:2026.10.7
+    container_name: pd-tunel-n8n
+    command: tunnel --no-autoupdate --url http://n8n:5678
+    depends_on:
+      - n8n
+    profiles: ["demo-n8n"]
+    restart: on-failure
 
 volumes:
   n8n_data:

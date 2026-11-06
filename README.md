@@ -24,6 +24,7 @@ Organizar, consultar y analizar la planta docente de una institución educativa:
 | Automatizaciones | n8n | 5678 | http://localhost:5678 |
 | IA | Ollama + `qwen2.5:3b` (en la computadora, fuera de Docker) | 11434 | http://localhost:11434 |
 | Base de datos | SQLite | — | `data/planta_docente.db` |
+| Demo online (opcional) | Cloudflare Tunnel (`cloudflared`) | — | `https://<al-azar>.trycloudflare.com` (interfaz y, aparte, n8n) |
 
 Dentro de Docker Compose, Streamlit y n8n llaman a la API por su nombre de servicio (`http://api:8000`). La API llega a Ollama en `http://host.docker.internal:11434`. El detalle de componentes, capas y decisiones técnicas está en [`docs/arquitectura.md`](docs/arquitectura.md).
 
@@ -81,6 +82,38 @@ docker compose up -d --build api     # reconstruir la API si cambia requirements
 **Docker Desktop** y **Ollama** tienen que estar abiertos en la computadora (Ollama: ícono de la llama cerca del reloj).
 
 **Modelo de IA:** se configura en `.env` con `OLLAMA_MODEL` (por defecto `qwen2.5:3b`). Se puede usar otro modelo descargado con Ollama poniendo su nombre exacto (como aparece en `ollama list`) y reiniciando la API con `docker compose up -d api`. Un modelo más grande puede superar el tiempo de espera (`OLLAMA_TIMEOUT`) en computadoras sin placa de video.
+
+## Demo online (túnel)
+
+Para mostrar la interfaz desde internet mientras el sistema corre en esta computadora, se usa un **túnel rápido de Cloudflare** (servicio `tunel` en `compose.yaml`). No requiere cuenta, dominio ni abrir puertos del router, y no cambia nada del código.
+
+```bash
+docker compose --profile demo up -d     # levanta todo el sistema + el túnel
+docker compose logs tunel               # buscar la línea con https://....trycloudflare.com
+docker compose stop tunel               # apaga solo el túnel (el sistema sigue andando en local)
+```
+
+- **Solo se publica la interfaz (Streamlit).** La API, n8n y Ollama no quedan expuestos: el navegador del visitante habla con Streamlit, y Streamlit con la API por la red interna de Docker. Por eso la carga de CVs con IA funciona igual aunque tarde más de un minuto.
+- **La dirección es al azar y cambia cada vez que se reinicia el túnel.** Hay que copiarla de los logs el día de la demo. Puede tardar unos segundos en responder.
+- **La computadora tiene que estar prendida** con Docker Desktop y Ollama abiertos.
+- **Seguridad:** la interfaz no tiene login; cualquiera con la dirección puede usarla mientras el túnel esté prendido. Compartirla solo con quien corresponda y apagar el túnel al terminar. Los datos de la demo son ficticios.
+- El túnel **no** arranca con el `docker compose up -d` habitual (perfil `demo`) ni se vuelve a prender solo al reiniciar Docker.
+- Si falla internet, la demo sigue funcionando en local en http://localhost:8501.
+
+### n8n online (opcional)
+
+Para abrir el editor de n8n desde otro dispositivo hay un segundo túnel, con su propio perfil (`demo-n8n`), que se prende aparte:
+
+```bash
+docker compose --profile demo --profile demo-n8n up -d   # los dos túneles
+docker compose logs tunel-n8n                            # dirección de n8n
+docker compose stop tunel-n8n                            # apaga solo el túnel de n8n
+```
+
+- El editor pide el **usuario y la contraseña de n8n** creados en la instalación.
+- **Los webhooks quedan públicos sin login** (por ejemplo `https://<dirección-n8n>/webhook/cv`): prender este túnel solo mientras haga falta.
+- Cloudflare corta los pedidos que tardan más de ~100 segundos: si se manda un CV al webhook por el túnel y la IA tarda más, la respuesta puede ser un error 524 aunque el docente se cargue igual. Desde la interfaz de Streamlit no pasa, porque ese pedido viaja por dentro de Docker.
+- El editor sigue mostrando las direcciones de los webhooks como `localhost:5678` (n8n no conoce la dirección del túnel, que cambia en cada reinicio). Es solo visual.
 
 ## Funcionalidades
 
