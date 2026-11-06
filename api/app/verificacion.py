@@ -133,6 +133,25 @@ def verificar(c: TestClient) -> None:
     caso("Alerta: con 5 días de margen no aparece", c.get("/alertas/vencimientos?dias=5").json()["cantidad"], 0)
     caso("Días fuera de rango → 422", c.get("/alertas/vencimientos?dias=0").status_code, 422)
 
+    print("\n4b. Renovación de designaciones (cierra el ciclo de las alertas)")
+    id_por_vencer = alertas["alertas"][0]["id"]  # la que vence en 10 días
+    ruta = f"/asignaciones/{id_por_vencer}/renovar"
+    r = c.put(ruta, json={"fecha_vencimiento": futuro(365)})
+    caso("Renovar designación → 200 con la fecha nueva",
+         (r.status_code, r.json().get("fecha_vencimiento")), (200, futuro(365)))
+    caso("Después de renovar, ya no aparece en las alertas",
+         c.get("/alertas/vencimientos?dias=30").json()["cantidad"], 0)
+    caso("Regla: fecha no posterior al vencimiento actual → 409",
+         c.put(ruta, json={"fecha_vencimiento": futuro(200)}).status_code, 409)
+    caso("Fecha de renovación pasada → 422",
+         c.put(ruta, json={"fecha_vencimiento": "2020-01-01"}).status_code, 422)
+    caso("Renovar asignación inexistente → 404",
+         c.put("/asignaciones/999/renovar", json={"fecha_vencimiento": futuro(400)}).status_code, 404)
+    c.put("/docentes/2", json={"estado": "pendiente_revision"})
+    caso("Regla: docente no activo no se puede renovar → 409",
+         c.put(ruta, json={"fecha_vencimiento": futuro(500)}).status_code, 409)
+    c.put("/docentes/2", json={"estado": "activo"})
+
     print("\n5. Carga de CV con IA (IA simulada)")
     r = c.post("/docentes/cv", files={"archivo": ("cv.txt", "CV de Laura Martínez, magíster, 10 años".encode())})
     caso("CV completo → creado", r.json().get("resultado"), "creado")
