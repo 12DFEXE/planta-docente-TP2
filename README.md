@@ -8,10 +8,10 @@ Organizar, consultar y analizar la planta docente de una institución educativa:
 
 - **Alta de docentes** por formulario o **desde su CV**, con extracción de datos por IA y **revisión humana** obligatoria.
 - **Asignación de materias** con reglas de negocio (tope de horas por dedicación, cobertura de cada materia, sin duplicados).
-- **Indicadores** de la planta docente y **alertas de vencimiento** de designaciones.
+- **Indicadores** de la planta docente, **alertas de vencimiento** y **renovación** de designaciones.
 - **Automatizaciones con n8n**: ingreso de CVs, avisos diarios de vencimientos y reporte semanal redactado por IA.
 
-**Proceso principal:** CV → la IA extrae los datos → Python los valida → una persona revisa y confirma → se asignan materias → el sistema calcula indicadores y alertas → n8n automatiza avisos y reportes.
+**Proceso principal:** CV → la IA extrae los datos → Python los valida → una persona revisa y confirma → se asignan materias → el sistema calcula indicadores y alertas → n8n automatiza avisos y reportes → una persona renueva las designaciones que vencen.
 
 ## Arquitectura
 
@@ -84,16 +84,16 @@ Ollama tiene que estar abierto en la computadora (ícono de la llama cerca del r
 | Tablero | Indicadores, gráficos, materias sin cobertura, designaciones por vencer y reporte redactado por IA |
 | Docentes | Listado con filtros, alta manual, **alta desde CV con IA** y edición / **confirmación de revisión humana** |
 | Materias | Listado con su cobertura de horas y alta |
-| Asignaciones | Listado y alta (las reglas las valida la API) |
+| Asignaciones | Listado, alta (las reglas las valida la API) y **renovación** de designaciones vencidas o por vencer |
 | Notificaciones | Avisos generados por los workflows de n8n |
 
-**API (FastAPI): 17 endpoints** — ver todos en http://localhost:8000/docs
+**API (FastAPI): 18 endpoints** — ver todos en http://localhost:8000/docs
 
 | Grupo | Endpoints |
 |---|---|
 | Docentes | `POST /docentes`, `POST /docentes/cv`, `GET /docentes`, `GET /docentes/{id}`, `PUT /docentes/{id}` |
 | Materias | `POST /materias`, `GET /materias` |
-| Asignaciones | `POST /asignaciones`, `GET /asignaciones` |
+| Asignaciones | `POST /asignaciones`, `GET /asignaciones`, `PUT /asignaciones/{id}/renovar` |
 | Indicadores y alertas | `GET /indicadores`, `GET /alertas/vencimientos` |
 | IA | `GET /ia/estado`, `POST /reportes/resumen` |
 | Notificaciones | `POST /notificaciones`, `GET /notificaciones`, `PUT /notificaciones/{id}/leida` |
@@ -102,6 +102,8 @@ Ollama tiene que estar abierto en la computadora (ícono de la llama cerca del r
 Errores: **422** datos inválidos · **404** no existe · **409** regla de negocio o dato duplicado · **503** IA no disponible · **502** respuesta inválida de la IA.
 
 **Reglas de negocio para asignar una materia:** el docente y la materia existen, el docente está activo (no pendiente de revisión), no está repetida, no supera las horas que necesita la materia y no supera el tope semanal por dedicación (simple 10 h, semiexclusiva 20 h, exclusiva 40 h).
+
+**Reglas para renovar una designación:** la asignación existe, el docente sigue activo y la nueva fecha es posterior a hoy y al vencimiento actual.
 
 ## Inteligencia artificial
 
@@ -136,7 +138,7 @@ docker compose exec n8n n8n export:workflow --all --separate --output=/workflows
 ## Verificación
 
 ```bash
-docker compose exec api python -m app.verificacion     # 38 casos automáticos (correctos y de error)
+docker compose exec api python -m app.verificacion     # 44 casos automáticos (correctos y de error)
 ```
 
 Usa una base temporal y una IA simulada; la IA real y los workflows se verificaron a mano. Detalle y guion de la demo: [`docs/verificacion.md`](docs/verificacion.md).
@@ -163,8 +165,11 @@ api/
   Dockerfile
   requirements.txt
 frontend/
-  app.py               interfaz Streamlit
+  app.py               punto de entrada: menú lateral, estado de API/IA y despacho a la página elegida
+  comun.py             constantes y funciones compartidas por las páginas
   api_client.py        comunicación con la API y traducción de errores
+  paginas/             una página por módulo, cada una con su función mostrar()
+    tablero.py, docentes.py, materias.py, asignaciones.py, notificaciones.py
   Dockerfile
   requirements.txt
 n8n/

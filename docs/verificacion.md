@@ -8,7 +8,7 @@ Cómo comprobamos que cada componente funciona por separado y que el sistema fun
 docker compose exec api python -m app.verificacion
 ```
 
-- Prueba **38 casos** contra la API real (FastAPI), sobre una **base de datos temporal** (no toca los datos reales).
+- Prueba **44 casos** contra la API real (FastAPI), sobre una **base de datos temporal** (no toca los datos reales).
 - La IA se reemplaza por una **simulada** para que las pruebas sean rápidas y repetibles. La IA real se prueba a mano (punto 3).
 - Si algún caso falla, el comando termina con error y muestra qué se esperaba y qué se obtuvo.
 
@@ -17,6 +17,7 @@ docker compose exec api python -m app.verificacion
 | Docentes | Alta, búsqueda, filtros, modificación, normalización de datos | Email repetido (409), nombre corto / email inválido / título inexistente (422), docente inexistente (404) |
 | Materias | Alta y validación | Materia repetida (409), horas fuera de rango (422) |
 | Asignaciones | Las 5 reglas de negocio | Asignación repetida, horas de más para la materia, tope por dedicación, docente pendiente de revisión (409), fecha pasada (422) |
+| Renovación | Renovar y que la designación salga de las alertas | Fecha no posterior al vencimiento actual / docente no activo (409), fecha pasada (422), asignación inexistente (404) |
 | Indicadores y alertas | Cálculos con reglas | % de posgrado, materias sin cobertura, ventana de días de las alertas, días fuera de rango (422) |
 | CV con IA | Proceso completo con IA simulada | CV sin email → "incompleto", formato no permitido (422), archivo sin texto (422), IA apagada (503), IA con respuesta inválida (502) |
 | Reporte y notificaciones | Separación regla / IA, avisos de n8n | Nivel de notificación inválido (422) |
@@ -31,6 +32,8 @@ Carga datos **ficticios** pensados para la demo (pasan por las mismas validacion
 - 6 docentes activos y 1 **pendiente de revisión** (cargado "por IA").
 - 8 materias, de las cuales 2 quedan **sin cobertura** (Estadística y parte de Programación II).
 - 7 asignaciones: 1 **ya vencida**, 2 **por vencer** en menos de 30 días y el resto a futuro.
+
+Con `--reset` se borran los datos y se vuelven a cargar. Funciona también con la base vacía (antes fallaba con `no such table` si las tablas todavía no existían: se corrigió haciendo que `borrar_todo()` las cree primero).
 
 ## 3. Verificación manual de la IA real (Ollama)
 
@@ -66,5 +69,6 @@ En n8n, la pestaña **Executions** muestra cada ejecución con los datos de entr
 6. **Caso de error**: repetir la misma asignación → mensaje de la regla de negocio. Cargar `cv_martin_gomez_sin_email.txt` → "faltan datos".
 7. **n8n**: ejecutar el workflow 2 y el 3 y mostrar el camino que toma el IF. Mandar un CV al webhook del workflow 1.
 8. **Notificaciones**: mostrar los avisos que dejaron los workflows.
-9. **Swagger** (`/docs`): mostrar los endpoints y probar uno.
-10. `docker compose exec api python -m app.verificacion` → 38 de 38.
+9. **Asignaciones → Renovar designación**: renovar la designación vencida que avisó el workflow 2 → en el Tablero ya no aparece como vencida (se cierra el ciclo alerta → acción humana).
+10. **Swagger** (`/docs`): mostrar los endpoints y probar uno.
+11. `docker compose exec api python -m app.verificacion` → 44 de 44.
