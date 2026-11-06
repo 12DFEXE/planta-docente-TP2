@@ -129,7 +129,10 @@ def pagina_tablero():
     if resp["cantidad"] == 0:
         st.info(f"No hay designaciones vencidas ni por vencer en los próximos {dias} días.")
     else:
-        st.warning(f"Hay {resp['cantidad']} designación(es) vencida(s) o por vencer.")
+        st.warning(
+            f"Hay {resp['cantidad']} designación(es) vencida(s) o por vencer. "
+            "Para renovarlas: **🔗 Asignaciones → Renovar designación**."
+        )
         tabla = pd.DataFrame(resp["alertas"])[
             ["docente_nombre", "materia_nombre", "fecha_vencimiento", "dias_restantes", "estado"]
         ]
@@ -385,7 +388,7 @@ def pagina_asignaciones():
     st.title("🔗 Asignaciones")
     mostrar_mensaje_guardado()
 
-    tab_lista, tab_alta = st.tabs(["Listado", "Nueva asignación"])
+    tab_lista, tab_alta, tab_renovar = st.tabs(["Listado", "Nueva asignación", "Renovar designación"])
 
     with tab_lista:
         try:
@@ -450,6 +453,45 @@ def pagina_asignaciones():
                 st.rerun()
             except ApiError as e:
                 st.error(str(e))
+
+    with tab_renovar:
+        pestania_renovar(asignaciones)
+
+
+def pestania_renovar(asignaciones: list[dict]):
+    """Extiende la fecha de vencimiento de una designación (cierra el ciclo de las alertas de n8n)."""
+    if not asignaciones:
+        st.info("Todavía no hay asignaciones para renovar.")
+        return
+
+    st.caption(
+        "Las designaciones están ordenadas de la que vence antes a la que vence después. "
+        "La API valida que el docente siga activo y que la nueva fecha sea posterior a la actual."
+    )
+    hoy = date.today()
+
+    def describir(a: dict) -> str:
+        dias = (date.fromisoformat(a["fecha_vencimiento"]) - hoy).days
+        estado = "🔴 vencida" if dias < 0 else ("🟡 vence en %d días" % dias if dias <= 30 else "🟢 vigente")
+        return f"{a['docente_nombre']} — {a['materia_nombre']} (vence {a['fecha_vencimiento']}, {estado})"
+
+    # Sin st.form a propósito: así la fecha propuesta se actualiza al elegir otra designación
+    asignacion = st.selectbox("Designación *", asignaciones, format_func=describir)
+    # Por defecto se propone un año más desde hoy o desde el vencimiento actual (lo que sea más tarde)
+    actual = date.fromisoformat(asignacion["fecha_vencimiento"])
+    nueva = st.date_input("Nueva fecha de vencimiento *", value=max(hoy, actual) + timedelta(days=365))
+    enviar = st.button("Renovar", type="primary")
+
+    if enviar:
+        try:
+            api.renovar_asignacion(asignacion["id"], nueva.isoformat())
+            st.session_state["mensaje_ok"] = (
+                f"Se renovó la designación de {asignacion['docente_nombre']} en "
+                f"{asignacion['materia_nombre']} hasta el {nueva.strftime('%d/%m/%Y')}."
+            )
+            st.rerun()
+        except ApiError as e:
+            st.error(str(e))
 
 
 # ======================= Notificaciones =======================

@@ -144,6 +144,11 @@ def crear_asignacion(datos: dict) -> dict:
     return _llamar("POST", "/asignaciones", json=datos)
 
 
+def renovar_asignacion(asignacion_id: int, fecha_vencimiento: str) -> dict:
+    return _llamar("PUT", f"/asignaciones/{asignacion_id}/renovar",
+                   json={"fecha_vencimiento": fecha_vencimiento})
+
+
 # ---------------- Indicadores y alertas ----------------
 
 def obtener_indicadores() -> dict:
