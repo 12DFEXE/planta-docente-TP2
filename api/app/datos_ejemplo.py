@@ -66,6 +66,7 @@ EMAIL_VENCIDA = "federico.lopez@ejemplo.edu.ar"  # su designación se pasa a "ya
 
 
 def borrar_todo() -> None:
+    init_db()  # si la base está vacía, primero crea las tablas (si no, el DELETE falla)
     with get_connection() as conn:
         conn.executescript(
             "DELETE FROM asignaciones; DELETE FROM materias; DELETE FROM docentes; DELETE FROM notificaciones;"
