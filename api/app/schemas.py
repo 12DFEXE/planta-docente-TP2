@@ -110,6 +110,19 @@ class AsignacionCrear(BaseModel):
         return valor
 
 
+class AsignacionRenovar(BaseModel):
+    """Datos para renovar una designación: solo cambia la fecha de vencimiento."""
+    fecha_vencimiento: date = Field(examples=["2027-12-31"])
+
+    @field_validator("fecha_vencimiento")
+    @classmethod
+    def vencimiento_futuro(cls, valor: date) -> date:
+        """Al renovar, la nueva fecha también tiene que ser posterior a hoy."""
+        if valor <= date.today():
+            raise ValueError("La nueva fecha de vencimiento tiene que ser posterior a hoy")
+        return valor
+
+
 class Asignacion(BaseModel):
     """Lo que la API devuelve de una asignación (con nombres para leerla fácil)."""
     id: int

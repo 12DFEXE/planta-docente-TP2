@@ -16,6 +16,7 @@ from .errores import Conflicto, DatosInvalidos, NoEncontrado
 from .schemas import (
     Asignacion,
     AsignacionCrear,
+    AsignacionRenovar,
     Docente,
     DocenteActualizar,
     DocenteCrear,
@@ -170,6 +171,13 @@ def listar_asignaciones(
 ):
     """Lista asignaciones, ordenadas por fecha de vencimiento."""
     return asignaciones.listar_asignaciones(docente_id=docente_id, materia_id=materia_id)
+
+
+@app.put("/asignaciones/{asignacion_id}/renovar", response_model=Asignacion, tags=["Asignaciones"])
+def renovar_asignacion(asignacion_id: int, datos: AsignacionRenovar):
+    """Renueva una designación extendiendo su fecha de vencimiento.
+    Cierra el ciclo de las alertas: n8n avisa que vence → una persona la renueva."""
+    return asignaciones.renovar_asignacion(asignacion_id, datos)
 
 
 # ---------------- Indicadores y alertas ----------------

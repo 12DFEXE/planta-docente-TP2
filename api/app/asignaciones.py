@@ -6,13 +6,18 @@ Antes de guardar, se verifican las REGLAS DE NEGOCIO (todas en Python, sin IA):
   3. No se puede asignar dos veces el mismo docente a la misma materia.
   4. Las horas no pueden superar las horas que le faltan cubrir a la materia.
   5. El docente no puede superar el tope de horas según su dedicación.
+
+Renovar una designación también tiene reglas:
+  - La asignación tiene que existir.
+  - El docente tiene que seguir activo.
+  - La nueva fecha tiene que ser posterior a hoy y a la fecha actual de vencimiento.
 """
 from typing import Optional
 
 from . import docentes, materias
 from .database import get_connection
-from .errores import Conflicto
-from .schemas import AsignacionCrear
+from .errores import Conflicto, NoEncontrado
+from .schemas import AsignacionCrear, AsignacionRenovar
 
 # Tope de horas semanales que puede sumar un docente según su dedicación
 TOPE_HORAS = {
@@ -24,6 +29,10 @@ TOPE_HORAS = {
 
 class ReglaIncumplida(Conflicto):
     """La asignación rompe alguna regla de negocio."""
+
+
+class AsignacionNoEncontrada(NoEncontrado):
+    """La asignación pedida no existe."""
 
 
 _CONSULTA_BASE = """
@@ -118,3 +127,38 @@ def listar_asignaciones(
     with get_connection() as conn:
         filas = conn.execute(consulta, parametros).fetchall()
     return [dict(f) for f in filas]
+
+
+def obtener_asignacion(asignacion_id: int) -> dict:
+    """Busca una asignación por id. Si no existe, lanza AsignacionNoEncontrada (404)."""
+    with get_connection() as conn:
+        fila = conn.execute(_CONSULTA_BASE + " WHERE a.id = ?", (asignacion_id,)).fetchone()
+    if fila is None:
+        raise AsignacionNoEncontrada(f"No existe una asignación con id {asignacion_id}")
+    return dict(fila)
+
+
+def renovar_asignacion(asignacion_id: int, datos: AsignacionRenovar) -> dict:
+    """Extiende la fecha de vencimiento de una designación (por ejemplo, después
+    de que n8n avisó que estaba por vencer). Valida las reglas antes de guardar."""
+    asignacion = obtener_asignacion(asignacion_id)
+    docente = docentes.obtener_docente(asignacion["docente_id"])
+
+    if docente["estado"] != "activo":
+        raise ReglaIncumplida(
+            f"{docente['nombre']} no está activo/a: no se puede renovar su designación"
+        )
+
+    fecha_actual = asignacion["fecha_vencimiento"]  # viene como texto 'AAAA-MM-DD'
+    nueva_fecha = datos.fecha_vencimiento.isoformat()
+    if nueva_fecha <= fecha_actual:  # el formato ISO se puede comparar como texto
+        raise ReglaIncumplida(
+            f"La nueva fecha ({nueva_fecha}) tiene que ser posterior al vencimiento actual ({fecha_actual})"
+        )
+
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE asignaciones SET fecha_vencimiento = ? WHERE id = ?",
+            (nueva_fecha, asignacion_id),
+        )
+    return obtener_asignacion(asignacion_id)
