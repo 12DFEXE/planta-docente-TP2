@@ -29,11 +29,28 @@ PAGINAS = {
 # ======================= Menú lateral =======================
 
 st.sidebar.title("🎓 Planta Docente")
-pagina = st.sidebar.radio(
-    "Ir a",
-    list(PAGINAS),
-    label_visibility="collapsed",
-)
+
+# La página elegida se guarda en session_state para que se mantenga entre recargas.
+# La primera vez se muestra la primera del diccionario (Tablero).
+if "pagina" not in st.session_state:
+    st.session_state["pagina"] = next(iter(PAGINAS))
+
+
+def ir_a(nombre: str):
+    """Se ejecuta al tocar un botón, antes de redibujar: así el botón resaltado ya es el nuevo."""
+    st.session_state["pagina"] = nombre
+
+
+for nombre in PAGINAS:
+    st.sidebar.button(
+        nombre,
+        on_click=ir_a,
+        args=(nombre,),
+        type="primary" if nombre == st.session_state["pagina"] else "secondary",
+        use_container_width=True,
+    )
+
+pagina = st.session_state["pagina"]
 
 st.sidebar.divider()
 try:

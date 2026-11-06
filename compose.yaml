@@ -32,7 +32,9 @@ services:
     restart: unless-stopped
 
   n8n:
-    image: n8nio/n8n:latest
+    # Versión fija: con "latest" cada instalación puede bajar una versión distinta
+    # (n8n 2.0 cambió, por ejemplo, el interruptor "Active" por el botón "Publish").
+    image: n8nio/n8n:2.46.6
     container_name: pd-n8n
     ports:
       - "5678:5678"

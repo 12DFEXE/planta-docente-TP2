@@ -29,7 +29,7 @@ Dentro de Docker Compose, Streamlit y n8n llaman a la API por su nombre de servi
 
 ## Requisitos
 
-- **Docker Desktop** (incluye Docker Compose).
+- **Docker Desktop** (incluye Docker Compose). En Windows necesita WSL 2 (`wsl --install`) y la virtualización habilitada.
 - **Ollama** instalado en la computadora: https://ollama.com/download
 - Unos 3 GB libres para el modelo de IA.
 
@@ -40,7 +40,10 @@ Dentro de Docker Compose, Streamlit y n8n llaman a la API por su nombre de servi
 git clone https://github.com/12DFEXE/planta-docente-TP2.git
 cd planta-docente-TP2
 
-# 2. Crear la configuración local (no se sube a Git)
+# 1b. Abrir Docker Desktop y esperar a que diga "Engine running"
+#     (si está cerrado, docker compose falla con "failed to connect to the docker API")
+
+# 2. Crear la configuración local (no se sube a Git). Sin este paso, docker compose falla con ".env not found"
 cp .env.example .env            # en Windows (cmd): copy .env.example .env
 
 # 3. Descargar el modelo de IA
@@ -57,7 +60,9 @@ docker compose exec api python -m app.datos_ejemplo --reset
 docker compose exec n8n n8n import:workflow --separate --input=/workflows
 ```
 
-Después, en n8n, abrir el workflow **1 - Ingreso de CV con IA** y activarlo (interruptor *Active*) para que escuche el webhook.
+Después, en n8n, abrir el workflow **1 - Ingreso de CV con IA** y hacer clic en **Publish** (arriba, en la barra del editor, o `Shift + P`) para que escuche el webhook. El estado tiene que quedar en *Published*. Los workflows 2 y 3 se pueden ejecutar a mano para la demo; solo hace falta publicarlos para que corran solos en su horario.
+
+> n8n está fijado en la versión **2.46.6** (`compose.yaml`). En n8n 2.x el antiguo interruptor *Active* se reemplazó por el botón *Publish*.
 
 > **Si la API no llega a Ollama** (`/ia/estado` devuelve `"disponible": false`): en Windows, crear la variable de entorno de usuario `OLLAMA_HOST=0.0.0.0` y reiniciar Ollama.
 
@@ -73,7 +78,9 @@ docker compose down                  # detener todo (los datos se conservan)
 docker compose up -d --build api     # reconstruir la API si cambia requirements.txt
 ```
 
-Ollama tiene que estar abierto en la computadora (ícono de la llama cerca del reloj).
+**Docker Desktop** y **Ollama** tienen que estar abiertos en la computadora (Ollama: ícono de la llama cerca del reloj).
+
+**Modelo de IA:** se configura en `.env` con `OLLAMA_MODEL` (por defecto `qwen2.5:3b`). Se puede usar otro modelo descargado con Ollama poniendo su nombre exacto (como aparece en `ollama list`) y reiniciando la API con `docker compose up -d api`. Un modelo más grande puede superar el tiempo de espera (`OLLAMA_TIMEOUT`) en computadoras sin placa de video.
 
 ## Funcionalidades
 
@@ -127,6 +134,12 @@ Enviar un CV al workflow 1:
 
 ```bash
 curl -F "archivo=@data/ejemplos/cv_laura_martinez.txt" http://localhost:5678/webhook/cv
+```
+
+En **PowerShell** usar `curl.exe` (con `curl` solo se ejecuta otro comando que no acepta `-F`):
+
+```powershell
+curl.exe -F "archivo=@data/ejemplos/cv_laura_martinez.txt" http://localhost:5678/webhook/cv
 ```
 
 Si se modifica un workflow en n8n, exportarlo antes de hacer commit:
