@@ -142,11 +142,14 @@ En **PowerShell** usar `curl.exe` (con `curl` solo se ejecuta otro comando que n
 curl.exe -F "archivo=@data/ejemplos/cv_laura_martinez.txt" http://localhost:5678/webhook/cv
 ```
 
-Si se modifica un workflow en n8n, exportarlo antes de hacer commit:
+Si se modifica un workflow en n8n, exportarlo y limpiarlo antes de hacer commit:
 
 ```bash
-docker compose exec n8n n8n export:workflow --all --separate --output=/workflows
+docker compose exec n8n n8n export:workflow --all --separate --pretty --output=/workflows/exportados
+python n8n/limpiar_exportacion.py
 ```
+
+El export de n8n 2.x incluye el **email** del usuario e IDs de la instalación. El script deja solo lo necesario para importar el workflow (nombre, nodos, conexiones y configuración), quita credenciales si las hubiera y lo guarda con el nombre de siempre (`1_ingreso_cv.json`, …). La carpeta `exportados/` está en el `.gitignore` y se puede borrar después.
 
 ## Verificación
 
@@ -188,6 +191,7 @@ frontend/
 n8n/
   workflows/           workflows exportados (JSON)
   generar_workflows.py script con el que se generaron inicialmente
+  limpiar_exportacion.py limpia los workflows exportados (saca email, IDs y credenciales)
 data/
   ejemplos/            CVs ficticios para la demo
 docs/

@@ -7,6 +7,10 @@ venv/
 __pycache__/
 *.pyc
 
+# Exportaciones crudas de n8n: tienen el email del usuario e IDs de la instalación.
+# Se limpian con n8n/limpiar_exportacion.py antes de versionarlas.
+n8n/workflows/exportados/
+
 # Base de datos local (los CVs de ejemplo van en data/ejemplos/)
 data/*.db
 
