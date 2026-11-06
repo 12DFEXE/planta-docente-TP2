@@ -241,7 +241,7 @@ compose.yaml
 | Integrante | Responsabilidades principales |
 |---|---|
 | **Exequiel Anaya** | API (endpoints, validaciones y reglas de negocio), integración de IA, verificación automática y datos de ejemplo, documentación |
-| **Martín García** | Infraestructura con Docker Compose (versión fija de n8n, recarga del frontend en Windows), workflows de n8n, despliegue en servidor para la presentación, renovación de designaciones (endpoint, reglas, verificación y pantalla), modularización del frontend y menú de navegación, instalación y documentación para Windows |
+| **Martín García** | Infraestructura con Docker Compose (versión fija de n8n, recarga del frontend en Windows), workflows de n8n, despliegue en servidor para la presentación (se hizo despliegue con túnel), renovación de designaciones (endpoint, reglas, verificación y pantalla), modularización del frontend y menú de navegación, instalación y documentación para Windows |
 | **Ambos** | Definición del alcance, interfaz Streamlit, pruebas integradas y bitácora de IA |
 
 Los datos usados en el sistema son ficticios.
